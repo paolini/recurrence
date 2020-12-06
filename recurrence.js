@@ -42,7 +42,7 @@ var plot;
 var a_0 = 5.0;
 
 function expr_f(x) {
-    return compiled_expr.eval({"x": x});
+    return compiled_expr.evaluate({"x": x});
 }
 
 function fill_table(table_id, sequence) {
