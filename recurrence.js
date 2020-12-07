@@ -32,17 +32,51 @@ function recurrenceWeb (plot, sequence) {
     }
 }
 
+function drawPoints(plot, points, r, g, b) {
+    if (plot.canvas == null) return;
+    var width = plot.canvas.width;
+    var height = plot.canvas.height;
+    var canvasData = plot.ctx.getImageData(0, 0, width, height);
+//    var canvasData = plot.ctx.createImageData(width/2, height);
+    for (var i=0; i<points.length; ++i) {
+        var x = Math.floor(plot.pixel_x(points[i][0]));
+        var y = Math.floor(plot.pixel_y(points[i][1]));
+        if (x<0 || x>= width || y<0 || y>= height) continue;
+        canvasData.data[(y * width + x) * 4 + 0] = r;
+        canvasData.data[(y * width + x) * 4 + 1] = g;
+        canvasData.data[(y * width + x) * 4 + 2] = b;
+        canvasData.data[(y * width + x) * 4 + 3] = 255;
+    }
+    /*
+    for (var i=0;i<canvasData.width * canvasData.height/2;++i) {
+        canvasData.data[i*4+0] = 255;
+//        canvasData.data[i*4+1] = 128;
+//        canvasData.data[i*4+2] = 128;
+        canvasData.data[i*4+3] = 255;
+    }
+    */
+    plot.ctx.putImageData(canvasData, 0, 0);
+}
+
 ////////////////////////
 
 function id(x) {return x;}
 
-var expr = "cos(x)";
+var expr = "c*x*(1-x)";
 var compiled_expr;
+var param = 1.0;
+var param_name = null; // name of possible parameter
 var plot;
+var param_plot;
 var a_0 = 5.0;
+var param_points_expr; // cache expr to check for changes
+var param_points=[];
 
 function expr_f(x) {
-    return compiled_expr.evaluate({"x": x});
+    var scope = {}
+    scope['x'] = x;
+    scope[param_name] = param;
+    return compiled_expr.evaluate(scope);
 }
 
 function fill_table(table_id, sequence) {
@@ -50,19 +84,33 @@ function fill_table(table_id, sequence) {
     for (var i=0; i<sequence.length; i++) {
 	$("#"+table_id).append("<tr><td>a(" + (i+1) + ")</td><td>" + sequence[i] + "</td></tr>");
     }
-
 }
 
 function draw(sequence) {
     var canvas = $("#canvas")[0];
+    var param_canvas = $("#param_canvas")[0];
+    var c_span = $("#c_span")[0];
+    if (param_name == null) {
+        param_canvas.style.visibility = 'hidden';
+        c_span.style.visibility = 'hidden';
+    } else {
+        param_canvas.style.visibility = 'visible';
+        c_span.style.visibility = 'visible';
+    }
     if (null==canvas || !canvas.getContext) return;
 
     canvas.height = $("#bottom").offset().top - $("#canvas").offset().top;
-    canvas.width = window.innerWidth - 30;
+    if (param_name == null) {
+        canvas.width = window.innerWidth - 30;
+    } else {
+        canvas.width = (window.innerWidth - 60)/2;
+        param_canvas.height = canvas.height;
+        param_canvas.width = canvas.width;
+    }
 
     plot.setCanvas(canvas);
 
-    plot.ctx.clearRect ( 0 , 0 , canvas.width, canvas.height );
+    plot.ctx.clearRect (0 ,0 ,canvas.width, canvas.height);
     plot.drawAxes();
     plot.ctx.strokeStyle = "rgb(66,44,255)";
     plot.ctx.lineWidth = 2;
@@ -72,30 +120,71 @@ function draw(sequence) {
     plot.ctx.strokeStyle = "rgb(0,0,0)";
     plot.ctx.lineWidth = 1;
     recurrenceWeb(plot, sequence);
+
+    if (param_name != null) {
+        // disegna
+        param_plot.setCanvas(param_canvas);
+        param_plot.ctx.clearRect(0, 0, param_canvas.width, param_canvas.height);
+        param_plot.drawAxes();
+        drawPoints(param_plot, param_points, 100, 0, 0);
+    }
+}
+
+function find_variables(parsed) {
+    var names = [];
+    parsed.traverse(function(node, path, parent) {
+        if (node.type == 'SymbolNode') {
+            if (!names.includes(node.name)) {
+                names.push(node.name);
+            }
+        }
+    });
+    return names;
 }
 
 function update() {
     $("#a0").html(""+a_0);
     expr = $("#expr").val();
     try {
+      var parsed = math.parse(expr);
+      var names = find_variables(parsed);
+      if (names.includes('c')) {
+          param_name = 'c';
+      } else {
+          param_name = null;
+      }
       compiled_expr = math.compile(expr);
     } catch(e) {
       alert(e);
       return;
     }
+    param = math.evaluate($("#c_input").val());
     $("#formula").html('$$\\begin{cases}a_1=' + a_0 + '\\\\a_{n+1}=' + math.parse(expr.replace(/x/g,'a_n')).toTex() + '\\end{cases}$$');
     MathJax.Hub.Queue(["Typeset",MathJax.Hub]);
 
     var sequence = recurrenceSequence(expr_f, a_0, 100);
+
+    if (param_name != null) {
+        if (param_points_expr != expr) {
+            param_points = [];
+            param_points_expr = expr;
+        }    
+        // calcola ulteriori 50 punti per rappresentare i punti limite
+        var pts = recurrenceSequence(expr_f, sequence[sequence.length-1], 50);
+        for (var i=0; i<pts.length; ++i) {
+            param_points.push([param, pts[i]]);
+        }
+    }
+    
     draw(sequence);
     fill_table("table", sequence);
     var reference = plot.getReference();
     var params = {
     	"expr": expr,
     	"a": a_0.toFixed(4),
-      "r": reference.radius.toFixed(3),
-      "x": reference.xCenter.toFixed(3),
-      "y": reference.yCenter.toFixed(3),
+        "r": reference.radius.toFixed(3),
+        "x": reference.xCenter.toFixed(3),
+        "y": reference.yCenter.toFixed(3),
     }
     setLocationHash(params);
 }
@@ -141,11 +230,24 @@ $(function() {
         a_0 = parseFloat(params['a']);
     }
     $("#expr").keyup(function(event) {
-        if (event.keyCode == 13)
+        if (event.keyCode == 13) {
             update();
+        }
+    });
+    $("#c_input").keyup(function(event){
+        if (event.keyCode == 13) {
+            $("#c_slider").val($("#c_input").val());
+            update();
+        }
+    });
+    $("#c_slider").change(function(event){
+        $("#c_input").val($("#c_slider").val());
+        update();
     });
 
     plot = newPlotFromParams(params);
+
+    param_plot = new Plot({xCenter: 2, yCenter: 1, radius: 3});
 
     $("#draw").click(function() {
         update();
@@ -161,7 +263,12 @@ $(function() {
     	  update();
     });
 
-
+    $("#param_canvas").on("mousedown",function(event) {
+        var coords = param_plot.mouse_coords(event);
+        param = coords.x;
+        $("#c_input").val(param);
+    	update();
+    });
 
     update();
 });

@@ -11,6 +11,7 @@ function Plot(options) {
     this.width = null;
     this.height = null;
     this.ctx = null;
+    this.canvas = null;
 }
 
 Plot.prototype.resize = function(width, height) {
@@ -27,6 +28,7 @@ Plot.prototype.resize = function(width, height) {
 Plot.prototype.setCanvas = function(canvas) {
   this.ctx = canvas.getContext("2d");
   this.resize(canvas.width, canvas.height);
+  this.canvas = canvas;
 }
 
 Plot.prototype.setPdf = function(width, height) {
@@ -67,8 +69,8 @@ Plot.prototype.drawAxes = function() {
     var h = this.height;
     this.ctx.beginPath();
     this.ctx.strokeStyle = "rgb(128,128,128)";
-    this.ctx.moveTo(0,this.y0); plot.ctx.lineTo(w,this.y0);  // X axis
-    this.ctx.moveTo(this.x0,0); plot.ctx.lineTo(this.x0,h);  // Y axis
+    this.ctx.moveTo(0,this.y0); this.ctx.lineTo(w,this.y0);  // X axis
+    this.ctx.moveTo(this.x0,0); this.ctx.lineTo(this.x0,h);  // Y axis
     this.ctx.stroke();
 
     // draw rulers
