@@ -16,11 +16,18 @@ function recurrenceWeb (plot, sequence) {
     plot.ctx.beginPath();
     plot.moveTo(sequence[0], 0);
     for (var i=0; i<sequence.length-1; ++i) {
-    	var x = sequence[i];
+        var x = sequence[i];
     	var y = sequence[i+1]
     	if (Math.abs(y) > 10E4) break;
     	plot.lineTo(x, y);
     	plot.lineTo(y, y);
+        if (i==sequence.length-10) {
+            plot.ctx.stroke();
+            plot.ctx.strokeStyle = "rgb(255,0,0)";
+            plot.ctx.lineWidth *= 2;
+            plot.ctx.beginPath();
+            plot.moveTo(y,y);
+        }
     }
     plot.ctx.stroke()
     plot.ctx.strokeStyle = "rgb(255,0,0)";
@@ -38,7 +45,6 @@ function drawPoints(plot, points, r, g, b) {
     var width = plot.canvas.width;
     var height = plot.canvas.height;
     var canvasData = plot.ctx.getImageData(0, 0, width, height);
-//    var canvasData = plot.ctx.createImageData(width/2, height);
     for (var i=0; i<points.length; ++i) {
         var x = Math.floor(plot.pixel_x(points[i][0]));
         var y = Math.floor(plot.pixel_y(points[i][1]));
@@ -48,14 +54,6 @@ function drawPoints(plot, points, r, g, b) {
         canvasData.data[(y * width + x) * 4 + 2] = b;
         canvasData.data[(y * width + x) * 4 + 3] = 255;
     }
-    /*
-    for (var i=0;i<canvasData.width * canvasData.height/2;++i) {
-        canvasData.data[i*4+0] = 255;
-//        canvasData.data[i*4+1] = 128;
-//        canvasData.data[i*4+2] = 128;
-        canvasData.data[i*4+3] = 255;
-    }
-    */
     plot.ctx.putImageData(canvasData, 0, 0);
 }
 
