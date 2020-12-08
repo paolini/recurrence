@@ -11,6 +11,7 @@ function recurrenceSequence(func, x, n) {
 }
 
 function recurrenceWeb (plot, sequence) {
+    if (sequence.length == 0) return;
     plot.ctx.strokeStyle = "rgb(0,0,0)";
     plot.ctx.beginPath();
     plot.moveTo(sequence[0], 0);
@@ -62,7 +63,7 @@ function drawPoints(plot, points, r, g, b) {
 
 function id(x) {return x;}
 
-var expr = "c*x*(1-x)";
+var expr = null;
 var compiled_expr;
 var param = 1.0;
 var param_name = null; // name of possible parameter
@@ -104,8 +105,11 @@ function draw(sequence) {
         canvas.width = window.innerWidth - 30;
     } else {
         canvas.width = (window.innerWidth - 60)/2;
-        param_canvas.height = canvas.height;
-        param_canvas.width = canvas.width;
+        if (param_canvas.height != canvas.height || param_canvas.width != canvas.width) {
+            param_canvas.height = canvas.height;
+            param_canvas.width = canvas.width;
+            param_points_expr = ""; // force redrawing
+        }
     }
 
     plot.setCanvas(canvas);
@@ -124,9 +128,13 @@ function draw(sequence) {
     if (param_name != null) {
         // disegna
         param_plot.setCanvas(param_canvas);
-        param_plot.ctx.clearRect(0, 0, param_canvas.width, param_canvas.height);
-        param_plot.drawAxes();
-        drawPoints(param_plot, param_points, 100, 0, 0);
+        if (param_points_expr != expr) {
+            param_points_expr = expr;                
+            param_plot.ctx.clearRect(0, 0, param_canvas.width, param_canvas.height);
+            param_plot.drawAxes();
+        }
+        drawPoints(param_plot, param_points, 0, 0, 255, 255);
+        param_points = [];
     }
 }
 
@@ -140,6 +148,13 @@ function find_variables(parsed) {
         }
     });
     return names;
+}
+
+function update_param(alpha, n_skip, n) {
+    var pts = recurrenceSequence(expr_f, alpha, n_skip + n);
+    for (var i=n_skip; i<pts.length; ++i) {
+        param_points.push([param, pts[i]]);
+    }
 }
 
 function update() {
@@ -165,15 +180,8 @@ function update() {
     var sequence = recurrenceSequence(expr_f, a_0, 100);
 
     if (param_name != null) {
-        if (param_points_expr != expr) {
-            param_points = [];
-            param_points_expr = expr;
-        }    
         // calcola ulteriori 50 punti per rappresentare i punti limite
-        var pts = recurrenceSequence(expr_f, sequence[sequence.length-1], 50);
-        for (var i=0; i<pts.length; ++i) {
-            param_points.push([param, pts[i]]);
-        }
+        update_param(sequence[sequence.length-1], 0, 50);
     }
     
     draw(sequence);
@@ -268,6 +276,18 @@ $(function() {
         param = coords.x;
         $("#c_input").val(param);
     	update();
+    });
+
+    $("#param_canvas").on("mouseup",function(event) {
+        var coords = param_plot.mouse_coords(event);
+        var dir = coords.x > param ? 1 : -1;
+        var x_target = param_plot.pixel_x(coords.x);
+        for (var x = param_plot.pixel_x(param)+1; dir * (x_target - x) > 0; x += dir) {
+            param = param_plot.x_pixel(x);
+            update_param(a_0, 100, 50);
+        }
+        $("#c_input").val(param);
+        update();
     });
 
     update();
