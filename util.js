@@ -5,20 +5,23 @@ function new_svg_elem(elem) {
 // function plotFunctionGraph(ctx, plot, func) {}
 
 function funGraph(plot, func) {
-    var yy, x, dx=2, x0=plot.x0, y0=plot.y0, scale=plot.scale;
-    var iMax = Math.round((plot.width-x0)/dx);
-    var iMin = Math.round(-x0/dx);
+    var yy, x, xx;
     plot.ctx.beginPath();
+    var needMove = false;
 
-    for (var i=iMin;i<=iMax;i++) {
-      	x = i*dx/scale;
+    for (var i=0; i<plot.width; i+=2) {
+      	x = plot.x_pixel(i);
       	var y = func(x);
-      	if (i==iMin || Math.abs(y-yy)>dx*100) {
-      	    plot.moveTo(x, func(x));
-      	} else {
+      	if (i==0 || Math.abs(y-yy)>(x-xx)*100) {
+            needMove = true;
+          } else {
+            if (needMove) {
+              plot.moveTo(xx, yy);
+            }
             plot.lineTo(x, func(x));
 	      }
-      	yy = y;
+        yy = y;
+        xx = x;
     }
     plot.ctx.stroke();
 }
